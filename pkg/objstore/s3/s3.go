@@ -17,6 +17,7 @@ import (
 
 	"github.com/improbable-eng/thanos/pkg/objstore"
 	"github.com/minio/minio-go"
+	"github.com/minio/minio-go/pkg/credentials"
 	"github.com/minio/minio-go/pkg/encrypt"
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
@@ -45,13 +46,14 @@ type Bucket struct {
 
 // Config encapsulates the necessary config values to instantiate an s3 client.
 type Config struct {
-	Bucket       string
-	Endpoint     string
-	AccessKey    string
-	SecretKey    string
-	Insecure     bool
-	SignatureV2  bool
-	SSEEnprytion bool
+	Bucket          string
+	Endpoint        string
+	AccessKey       string
+	SecretKey       string
+	Insecure        bool
+	SignatureV2     bool
+	SSEEnprytion    bool
+	InstanceProfile bool
 }
 
 // RegisterS3Params registers the s3 flags and returns an initialized Config struct.
@@ -78,15 +80,20 @@ func RegisterS3Params(cmd *kingpin.CmdClause) *Config {
 	cmd.Flag("s3.encrypt-sse", "Whether to use Server Side Encryption").
 		Default("false").Envar("S3_SSE_ENCRYPTION").BoolVar(&s3config.SSEEnprytion)
 
+	cmd.Flag("s3.instance-profile", "Whether to fetch credentials from an EC2 instance profile").
+		Default("false").Envar("S3_INSTANCE_PROFILE").BoolVar(&s3config.InstanceProfile)
+
 	return &s3config
 }
 
 // Validate checks to see if mandatory s3 config options are set.
 func (conf *Config) Validate() error {
-	if conf.Bucket == "" ||
-		conf.Endpoint == "" ||
-		conf.AccessKey == "" ||
-		conf.SecretKey == "" {
+	if conf.Bucket == "" || conf.Endpoint == "" {
+		return errors.New("insufficient s3 configuration information")
+	}
+	if !conf.InstanceProfile &&
+		(conf.AccessKey == "" ||
+			conf.SecretKey == "") {
 		return errors.New("insufficient s3 configuration information")
 	}
 	return nil
@@ -104,17 +111,28 @@ func (conf *Config) ValidateForTests() error {
 
 // NewBucket returns a new Bucket using the provided s3 config values.
 func NewBucket(conf *Config, reg prometheus.Registerer, component string) (*Bucket, error) {
-	var f func(string, string, string, bool) (*minio.Client, error)
-	if conf.SignatureV2 {
-		f = minio.NewV2
+	var client *minio.Client
+	if conf.InstanceProfile {
+		var err error
+		client, err = minio.NewWithCredentials(conf.Endpoint, credentials.NewIAM(""), !conf.Insecure, "")
+		if err != nil {
+			return nil, errors.Wrap(err, "initialize s3 client")
+		}
 	} else {
-		f = minio.NewV4
+		var f func(string, string, string, bool) (*minio.Client, error)
+		if conf.SignatureV2 {
+			f = minio.NewV2
+		} else {
+			f = minio.NewV4
+		}
+
+		var err error
+		client, err = f(conf.Endpoint, conf.AccessKey, conf.SecretKey, !conf.Insecure)
+		if err != nil {
+			return nil, errors.Wrap(err, "initialize s3 client")
+		}
 	}
 
-	client, err := f(conf.Endpoint, conf.AccessKey, conf.SecretKey, !conf.Insecure)
-	if err != nil {
-		return nil, errors.Wrap(err, "initialize s3 client")
-	}
 	client.SetAppInfo(fmt.Sprintf("thanos-%s", component), fmt.Sprintf("%s (%s)", version.Version, runtime.Version()))
 	client.SetCustomTransport(&http.Transport{
 		Proxy: http.ProxyFromEnvironment,

@@ -17,7 +17,7 @@ NOTE: Currently Thanos requires strong consistency (write-read) for object store
 2. Implement [objstore.Bucket inteface](/pkg/objstore/objstore.go)
 3. Add `NewTestBucket` constructor for testing purposes, that creates and deletes temporary bucket.
 4. Use created `NewTestBucket` in [ForeachStore method](/pkg/objstore/objtesting/foreach.go) to ensure we can run tests against new provider. (In PR)
-5. RUN the [TestObjStoreAcceptanceTest](/pkg/objstore/objtesting/acceptance_test.go) against your provider to ensure it fits. Fix any found error until test passes. (In PR)
+5. RUN the [TestObjStore_AcceptanceTest_e2e](/pkg/objstore/objtesting/acceptance_e2e_test.go) against your provider to ensure it fits. Fix any found error until test passes. (In PR)
 6. Add client implementation to the factory in [factory](/pkg/objstore/client/factory.go) code. (Using as small amount of flags as possible in every command)
 
 At that point, anyone can use your provider!
@@ -29,6 +29,11 @@ Thanos uses minio client to upload Prometheus data into AWS s3.
 To configure S3 bucket as an object store you need to set these mandatory S3 flags:
 - --s3.endpoint
 - --s3.bucket
+
+If an AWS IAM instance profile is available, then set set this s3 flag:
+- s3.instance-profile
+
+If an AWS IAM instance profile is not available, then these flags are also mandatory:
 - --s3.access-key
 
 and set `S3_SECRET_KEY` environment variable with AWS secret key.
@@ -40,6 +45,7 @@ Instead of using flags you can pass all the configuration via environment variab
 - `S3_SECRET_KEY`
 - `S3_INSECURE`
 - `S3_SIGNATURE_VERSION2`
+- `S3_INSTANCE_PROFILE`
 
 AWS region to endpoint mapping can be found in this [link](https://docs.aws.amazon.com/general/latest/gr/rande.html#s3_region)
 
