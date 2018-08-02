@@ -70,6 +70,10 @@ Flags:
                                  Initial peers to join the cluster. It can be
                                  either <ip:port>, or <domain:port>. A lookup
                                  resolution is done only at the startup.
+      --cluster.peers-file=/peers/file
+                                File containing a list of peers, one on each
+                                line, to join the cluster. Each peer should be
+                                in the format <ip:port>.
       --cluster.gossip-interval=<gossip interval>  
                                  Interval between sending gossip messages. By
                                  lowering this value (more frequent) gossip

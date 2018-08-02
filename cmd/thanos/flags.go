@@ -35,7 +35,7 @@ func regCommonServerFlags(cmd *kingpin.CmdClause) (*string, *string, func(log.Lo
 	pushPullInterval := cmd.Flag("cluster.pushpull-interval", "Interval for gossip state syncs. Setting this interval lower (more frequent) will increase convergence speeds across larger clusters at the expense of increased bandwidth usage. Default is used from a specified network-type.").
 		PlaceHolder("<push-pull interval>").Duration()
 
-	refreshInterval := cmd.Flag("cluster.refresh-interval", "Interval for membership to refresh cluster.peers state, 0 disables refresh.").Default(cluster.DefaultRefreshInterval.String()).Duration()
+	refreshInterval := cmd.Flag("cluster.refresh-interval", "Interval for membership to refresh cluster.peers or cluster.peers-file state, 0 disables refresh.").Default(cluster.DefaultRefreshInterval.String()).Duration()
 
 	secretKey := cmd.Flag("cluster.secret-key", "Initial secret key to encrypt cluster gossip. Can be one of AES-128, AES-192, or AES-256 in hexadecimal format.").HexBytes()
 
@@ -85,6 +85,10 @@ func regCommonServerFlags(cmd *kingpin.CmdClause) (*string, *string, func(log.Lo
 
 func parsePeerArgs(cmd *kingpin.CmdClause) func(log.Logger) cluster.PeerDiscovery {
 	peers := cmd.Flag("cluster.peers", "Initial peers to join the cluster. It can be either <ip:port>, or <domain:port>. A lookup resolution is done only at the startup.").Strings()
+	peersFile := cmd.Flag("cluster.peers-file", "File containing a list of peers, one on each line, to join the cluster. Each peer should be in the format <ip:port>").String()
+	if peersFile != nil {
+		return cluster.FilePeerList(*peersFile)
+	}
 	return cluster.StaticPeerList(*peers)
 }
 

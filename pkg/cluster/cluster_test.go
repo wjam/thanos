@@ -35,7 +35,7 @@ func joinPeer(num int, knownPeers []string) (peerAddr string, peer *Peer, err er
 		peerAddr,
 		apiAddr(num),
 		"",
-		StaticPeerList(knownPeers)(&logger),
+		StaticPeerList(knownPeers)(logger),
 		false,
 		100*time.Millisecond,
 		50*time.Millisecond,
